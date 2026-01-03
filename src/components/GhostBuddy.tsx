@@ -1,15 +1,16 @@
 interface GhostBuddyProps {
-  status: 'idle' | 'focusing' | 'completed' | 'break';
+  status: "idle" | "focusing" | "paused" | "completed" | "break";
 }
 
 const GhostBuddy = ({ status }: GhostBuddyProps) => {
-  const isActive = status === 'focusing';
-  const isCompleted = status === 'completed';
-  const isBreak = status === 'break';
+  const isActive = status === "focusing";
+  const isCompleted = status === "completed";
+  const isBreak = status === "break";
+  const isPaused = status === "paused";
 
-  // Eye styles based on status
+  /* ---------------- Eyes ---------------- */
   const getEyes = () => {
-    if (status === 'focusing') {
+    if (status === "focusing") {
       return (
         <>
           <circle cx="44" cy="52" r="6" className="fill-primary" />
@@ -19,23 +20,47 @@ const GhostBuddy = ({ status }: GhostBuddyProps) => {
         </>
       );
     }
-    if (status === 'completed') {
+
+    if (status === "completed") {
       return (
         <>
-          <path d="M38 52 Q44 46 50 52" stroke="hsl(var(--status-completed))" strokeWidth="3" strokeLinecap="round" fill="none" />
-          <path d="M70 52 Q76 46 82 52" stroke="hsl(var(--status-completed))" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <path
+            d="M38 52 Q44 46 50 52"
+            stroke="hsl(var(--status-completed))"
+            strokeWidth="3"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M70 52 Q76 46 82 52"
+            stroke="hsl(var(--status-completed))"
+            strokeWidth="3"
+            strokeLinecap="round"
+            fill="none"
+          />
         </>
       );
     }
-    if (status === 'break') {
+
+    if (status === "break" || status === "paused") {
       return (
         <>
-          <path d="M38 52 L50 52" stroke="hsl(var(--muted-foreground))" strokeWidth="3" strokeLinecap="round" />
-          <path d="M70 52 L82 52" stroke="hsl(var(--muted-foreground))" strokeWidth="3" strokeLinecap="round" />
+          <path
+            d="M38 52 L50 52"
+            stroke="hsl(var(--muted-foreground))"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          <path
+            d="M70 52 L82 52"
+            stroke="hsl(var(--muted-foreground))"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
         </>
       );
     }
-    // Idle - friendly eyes
+
     return (
       <>
         <ellipse cx="44" cy="52" rx="5" ry="6" className="fill-muted-foreground" />
@@ -46,27 +71,77 @@ const GhostBuddy = ({ status }: GhostBuddyProps) => {
     );
   };
 
-  // Mouth based on status
+  /* ---------------- Mouth ---------------- */
   const getMouth = () => {
-    if (status === 'focusing') {
-      return <path d="M52 68 Q60 74 68 68" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round" fill="none" />;
+    if (status === "focusing") {
+      return (
+        <path
+          d="M52 68 Q60 74 68 68"
+          stroke="hsl(var(--primary))"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+      );
     }
-    if (status === 'completed') {
-      return <path d="M48 68 Q60 80 72 68" stroke="hsl(var(--status-completed))" strokeWidth="2.5" strokeLinecap="round" fill="none" />;
+
+    if (status === "completed") {
+      return (
+        <path
+          d="M48 68 Q60 80 72 68"
+          stroke="hsl(var(--status-completed))"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          fill="none"
+        />
+      );
     }
-    if (status === 'break') {
-      return <ellipse cx="60" cy="70" rx="4" ry="3" className="fill-muted-foreground" opacity="0.6" />;
+
+    if (status === "break" || status === "paused") {
+      return (
+        <ellipse
+          cx="60"
+          cy="70"
+          rx="4"
+          ry="3"
+          className="fill-muted-foreground"
+          opacity="0.6"
+        />
+      );
     }
-    return <path d="M50 68 Q60 76 70 68" stroke="hsl(var(--muted-foreground))" strokeWidth="2.5" strokeLinecap="round" fill="none" />;
+
+    return (
+      <path
+        d="M50 68 Q60 76 70 68"
+        stroke="hsl(var(--muted-foreground))"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        fill="none"
+      />
+    );
   };
 
-  // Blush for completed state
+  /* ---------------- Blush ---------------- */
   const getBlush = () => {
-    if (status === 'completed') {
+    if (status === "completed") {
       return (
         <>
-          <ellipse cx="32" cy="60" rx="6" ry="4" fill="hsl(var(--status-completed))" opacity="0.2" />
-          <ellipse cx="88" cy="60" rx="6" ry="4" fill="hsl(var(--status-completed))" opacity="0.2" />
+          <ellipse
+            cx="32"
+            cy="60"
+            rx="6"
+            ry="4"
+            fill="hsl(var(--status-completed))"
+            opacity="0.2"
+          />
+          <ellipse
+            cx="88"
+            cy="60"
+            rx="6"
+            ry="4"
+            fill="hsl(var(--status-completed))"
+            opacity="0.2"
+          />
         </>
       );
     }
@@ -74,30 +149,42 @@ const GhostBuddy = ({ status }: GhostBuddyProps) => {
   };
 
   return (
-    <div className={`relative transition-all duration-700 ${isActive ? 'ghost-glow-active' : 'ghost-glow'}`}>
+    <div className="relative flex flex-col items-center transition-all duration-700">
+      {/* Shadow (CSS, not SVG) */}
+      <div
+        className={`absolute bottom-1 w-16 h-3 rounded-full bg-black/20 blur-md
+          transition-all duration-500
+          ${isActive ? "scale-110 opacity-30" : "scale-100 opacity-20"}
+          ${isPaused || isBreak ? "opacity-15" : ""}
+        `}
+      />
+
+      {/* Ghost */}
       <svg
         width="120"
         height="130"
         viewBox="0 0 120 130"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className={`transition-transform duration-700 ${isActive ? 'scale-105' : 'scale-100'}`}
+        className={`relative z-10 transition-transform duration-700 ${
+          isActive ? "scale-105" : "scale-100"
+        }`}
         style={{
-          animation: isBreak ? 'none' : 'float 4s ease-in-out infinite',
+          animation:
+            isBreak || isPaused ? "none" : "float 4s ease-in-out infinite",
         }}
       >
         <defs>
-          {/* Gradient for ghost body */}
           <linearGradient id="ghostGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="hsl(var(--muted))" stopOpacity="1" />
-            <stop offset="100%" stopColor="hsl(var(--secondary))" stopOpacity="1" />
+            <stop offset="0%" stopColor="hsl(var(--muted))" />
+            <stop offset="100%" stopColor="hsl(var(--secondary))" />
           </linearGradient>
-          {/* Inner highlight */}
+
           <radialGradient id="ghostHighlight" cx="40%" cy="30%" r="50%">
             <stop offset="0%" stopColor="white" stopOpacity="0.08" />
             <stop offset="100%" stopColor="white" stopOpacity="0" />
           </radialGradient>
-          {/* Glow filter for active state */}
+
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
@@ -107,48 +194,35 @@ const GhostBuddy = ({ status }: GhostBuddyProps) => {
           </filter>
         </defs>
 
-        {/* Shadow */}
-        <ellipse 
-          cx="60" 
-          cy="122" 
-          rx={isActive ? 28 : 24} 
-          ry="6" 
-          fill="black" 
-          opacity={isActive ? 0.15 : 0.1}
-          className="transition-all duration-500"
-        />
-
-        {/* Ghost body */}
+        {/* Body */}
         <path
           d="M60 8
              C28 8 12 35 12 62
              L12 95
-             Q12 102 18 100 Q24 98 28 102 Q32 106 36 102 Q40 98 44 102 Q48 106 52 102 Q56 98 60 102 Q64 106 68 102 Q72 98 76 102 Q80 106 84 102 Q88 98 92 102 Q96 106 102 100 Q108 94 108 95
+             Q12 102 18 100 Q24 98 28 102 Q32 106 36 102 Q40 98 44 102
+             Q48 106 52 102 Q56 98 60 102 Q64 106 68 102 Q72 98 76 102
+             Q80 106 84 102 Q88 98 92 102 Q96 106 102 100 Q108 94 108 95
              L108 62
              C108 35 92 8 60 8Z"
           fill="url(#ghostGradient)"
-          className="transition-all duration-500"
-          filter={isActive ? 'url(#glow)' : undefined}
+          filter={isActive ? "url(#glow)" : undefined}
         />
 
-        {/* Inner highlight overlay */}
+        {/* Highlight */}
         <path
           d="M60 12
              C32 12 18 37 18 62
              L18 90
-             Q18 96 24 94 Q30 92 34 96 Q38 100 42 96 Q46 92 50 96 Q54 100 58 96 Q62 92 66 96 Q70 100 74 96 Q78 92 82 96 Q86 100 90 96 Q94 92 100 88
+             Q18 96 24 94 Q30 92 34 96 Q38 100 42 96 Q46 92 50 96
+             Q54 100 58 96 Q62 92 66 96 Q70 100 74 96 Q78 92 82 96
+             Q86 100 90 96 Q94 92 100 88
              L100 62
              C100 37 88 12 60 12Z"
           fill="url(#ghostHighlight)"
         />
 
-        {/* Blush (for completed) */}
         {getBlush()}
-
-        {/* Eyes */}
         {getEyes()}
-
-        {/* Mouth */}
         {getMouth()}
       </svg>
 

@@ -1,12 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from "react";
 
-type Status = 'idle' | 'focusing' | 'completed' | 'break';
+type Status = "idle" | "focusing" | "paused" | "completed" | "break";
 
 export const DURATION_OPTIONS = [15, 30, 45, 60] as const;
-export type DurationOption = typeof DURATION_OPTIONS[number];
 
-const STORAGE_KEY = 'studybuddy_data';
-const DURATION_KEY = 'studybuddy_duration';
+const STORAGE_KEY = "studybuddy_data";
+const DURATION_KEY = "studybuddy_duration";
 
 interface StudyData {
   todayMinutes: number;
@@ -14,7 +13,9 @@ interface StudyData {
   lastStudyDate: string;
 }
 
-const getTodayDate = () => new Date().toISOString().split('T')[0];
+const getTodayDate = () => new Date().toISOString().split("T")[0];
+
+/* ---------- persistence ---------- */
 
 const loadStudyData = (): StudyData => {
   try {
@@ -22,12 +23,12 @@ const loadStudyData = (): StudyData => {
     if (stored) {
       const data: StudyData = JSON.parse(stored);
       const today = getTodayDate();
-      
+
       if (data.lastStudyDate !== today) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
         return {
           todayMinutes: 0,
           streak: data.lastStudyDate === yesterdayStr ? data.streak : 0,
@@ -36,112 +37,124 @@ const loadStudyData = (): StudyData => {
       }
       return data;
     }
-  } catch (e) {
-    console.error('Error loading study data:', e);
-  }
+  } catch {}
   return { todayMinutes: 0, streak: 0, lastStudyDate: getTodayDate() };
 };
 
 const saveStudyData = (data: StudyData) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.error('Error saving study data:', e);
-  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 };
 
-const loadDuration = (): DurationOption => {
-  try {
-    const stored = localStorage.getItem(DURATION_KEY);
-    if (stored) {
-      const val = parseInt(stored, 10) as DurationOption;
-      if (DURATION_OPTIONS.includes(val)) return val;
-    }
-  } catch (e) {
-    console.error('Error loading duration:', e);
-  }
-  return 30;
+const loadDuration = (): number => {
+  const stored = localStorage.getItem(DURATION_KEY);
+  return stored ? parseInt(stored, 10) : 30;
 };
 
-const saveDuration = (duration: DurationOption) => {
-  try {
-    localStorage.setItem(DURATION_KEY, duration.toString());
-  } catch (e) {
-    console.error('Error saving duration:', e);
-  }
+const saveDuration = (duration: number) => {
+  localStorage.setItem(DURATION_KEY, duration.toString());
 };
+
+/* ---------- hook ---------- */
 
 export const useStudyTimer = () => {
-  const [focusDuration, setFocusDurationState] = useState<DurationOption>(loadDuration);
+  const [focusDuration, setFocusDuration] = useState<number>(loadDuration);
   const [timeLeft, setTimeLeft] = useState(focusDuration * 60);
-  const [status, setStatus] = useState<Status>('idle');
+  const [status, setStatus] = useState<Status>("idle");
   const [studyData, setStudyData] = useState<StudyData>(loadStudyData);
+
   const intervalRef = useRef<number | null>(null);
   const currentDurationRef = useRef(focusDuration);
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, "0")}:${s
+      .toString()
+      .padStart(2, "0")}`;
   };
 
-  const setFocusDuration = useCallback((duration: DurationOption) => {
-    setFocusDurationState(duration);
-    saveDuration(duration);
-    if (status === 'idle' || status === 'break') {
-      setTimeLeft(duration * 60);
-    }
-  }, [status]);
+  /* ---------- duration ---------- */
+
+  const setDuration = useCallback(
+    (minutes: number) => {
+      if (Number.isNaN(minutes) || minutes < 5) return;
+
+      setFocusDuration(minutes);
+      saveDuration(minutes);
+
+      if (status === "idle" || status === "break") {
+        setTimeLeft(minutes * 60);
+      }
+    },
+    [status]
+  );
+
+  /* ---------- controls ---------- */
 
   const startFocus = useCallback(() => {
     currentDurationRef.current = focusDuration;
-    setStatus('focusing');
+    setStatus("focusing");
     setTimeLeft(focusDuration * 60);
   }, [focusDuration]);
+
+  const pause = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setStatus("paused");
+  }, []);
+
+  const resume = useCallback(() => {
+    setStatus("focusing");
+  }, []);
 
   const takeBreak = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setStatus('break');
-    setTimeLeft(focusDuration * 60);
-  }, [focusDuration]);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+
+    setStatus("break");
+    setTimeLeft(5 * 60);
+  }, []);
 
   const reset = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setStatus('idle');
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+
+    setStatus("idle");
     setTimeLeft(focusDuration * 60);
   }, [focusDuration]);
 
+  /* ---------- timer engine ---------- */
+
   useEffect(() => {
-    if (status === 'focusing') {
+    if (status === "focusing") {
       intervalRef.current = window.setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(intervalRef.current!);
             intervalRef.current = null;
-            setStatus('completed');
-            
+
+            setStatus("completed");
+
             const completedMinutes = currentDurationRef.current;
             setStudyData((prevData) => {
               const today = getTodayDate();
-              const wasFirstSessionToday = prevData.lastStudyDate !== today || prevData.todayMinutes === 0;
-              
               const newData: StudyData = {
-                todayMinutes: (prevData.lastStudyDate === today ? prevData.todayMinutes : 0) + completedMinutes,
-                streak: wasFirstSessionToday && prevData.lastStudyDate !== today 
-                  ? prevData.streak + 1 
-                  : prevData.streak || 1,
+                todayMinutes:
+                  (prevData.lastStudyDate === today
+                    ? prevData.todayMinutes
+                    : 0) + completedMinutes,
+                streak:
+                  prevData.lastStudyDate === today
+                    ? prevData.streak
+                    : prevData.streak + 1,
                 lastStudyDate: today,
               };
               saveStudyData(newData);
               return newData;
             });
-            
+
             return 0;
           }
           return prev - 1;
@@ -150,15 +163,9 @@ export const useStudyTimer = () => {
     }
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [status]);
-
-  useEffect(() => {
-    setStudyData(loadStudyData());
-  }, []);
 
   return {
     timeLeft,
@@ -167,8 +174,13 @@ export const useStudyTimer = () => {
     todayMinutes: studyData.todayMinutes,
     streak: studyData.streak,
     focusDuration,
-    setFocusDuration,
+
+    durationOptions: DURATION_OPTIONS,
+    setFocusDuration: setDuration,
+
     startFocus,
+    pause,
+    resume,
     takeBreak,
     reset,
   };
