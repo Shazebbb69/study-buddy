@@ -1,12 +1,12 @@
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
-import Navbar from "../components/Navbar";
 import GhostBuddy from "../components/GhostBuddy";
 import Button from "../components/Button";
 import ThemeToggle from "../components/ThemeToggle";
 
-const Home = () => {
+const Home: React.FC = () => {
   const navigate = useNavigate();
 
   return (
@@ -19,7 +19,6 @@ const Home = () => {
         transition={{ duration: 0.5 }}
       >
         <div className="text-center max-w-md">
-          {/* Ghost Buddy */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -29,7 +28,6 @@ const Home = () => {
             <GhostBuddy size="lg" message="I'm here. Let's focus together." />
           </motion.div>
 
-          {/* Title */}
           <motion.h1
             className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight mb-4"
             initial={{ opacity: 0, y: 20 }}
@@ -39,7 +37,6 @@ const Home = () => {
             StudyBuddy
           </motion.h1>
 
-          {/* Tagline */}
           <motion.p
             className="text-lg text-muted-foreground leading-relaxed mb-10"
             initial={{ opacity: 0, y: 20 }}
@@ -49,7 +46,6 @@ const Home = () => {
             Your calm companion for focused study sessions. Track your progress, one moment at a time.
           </motion.p>
 
-          {/* CTA Button */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -61,7 +57,6 @@ const Home = () => {
             </Button>
           </motion.div>
 
-          {/* Subtle hint */}
           <motion.p
             className="text-sm text-muted-foreground mt-10"
             initial={{ opacity: 0 }}
@@ -72,8 +67,6 @@ const Home = () => {
           </motion.p>
         </div>
       </motion.div>
-
-      <Navbar />
     </div>
   );
 };
