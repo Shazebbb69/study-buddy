@@ -1,17 +1,18 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import GhostBuddy from "../components/GhostBuddy";
 import Button from "../components/Button";
 import ThemeToggle from "../components/ThemeToggle";
+import AchievementsPanel from "../components/AchievementsPanel";
 
-const Home: React.FC = () => {
+const Home = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
       <ThemeToggle />
+      <AchievementsPanel />
       <motion.div
         className="min-h-screen flex flex-col items-center justify-center px-6 py-12 pb-28"
         initial={{ opacity: 0 }}
@@ -19,6 +20,7 @@ const Home: React.FC = () => {
         transition={{ duration: 0.5 }}
       >
         <div className="text-center max-w-md">
+          {/* Ghost Buddy */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -28,6 +30,7 @@ const Home: React.FC = () => {
             <GhostBuddy size="lg" message="I'm here. Let's focus together." />
           </motion.div>
 
+          {/* Title */}
           <motion.h1
             className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight mb-4"
             initial={{ opacity: 0, y: 20 }}
@@ -37,6 +40,7 @@ const Home: React.FC = () => {
             StudyBuddy
           </motion.h1>
 
+          {/* Tagline */}
           <motion.p
             className="text-lg text-muted-foreground leading-relaxed mb-10"
             initial={{ opacity: 0, y: 20 }}
@@ -46,6 +50,7 @@ const Home: React.FC = () => {
             Your calm companion for focused study sessions. Track your progress, one moment at a time.
           </motion.p>
 
+          {/* CTA Button */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -57,6 +62,7 @@ const Home: React.FC = () => {
             </Button>
           </motion.div>
 
+          {/* Subtle hint */}
           <motion.p
             className="text-sm text-muted-foreground mt-10"
             initial={{ opacity: 0 }}
@@ -67,6 +73,7 @@ const Home: React.FC = () => {
           </motion.p>
         </div>
       </motion.div>
+
     </div>
   );
 };

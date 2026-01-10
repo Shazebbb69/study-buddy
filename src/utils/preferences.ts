@@ -5,7 +5,7 @@ export interface UserPreferences {
   dailyGoalMinutes: number;
 }
 
-const PREFERENCES_KEY = "studybuddy_preferences";
+export const PREFERENCES_KEY = "studybuddy_preferences";
 
 export const defaultPreferences: UserPreferences = {
   soundEnabled: true,
@@ -14,9 +14,6 @@ export const defaultPreferences: UserPreferences = {
   dailyGoalMinutes: 60,
 };
 
-/**
- * Read preferences from localStorage and merge with defaults.
- */
 export const getPreferences = (): UserPreferences => {
   try {
     const data = localStorage.getItem(PREFERENCES_KEY);
@@ -28,30 +25,20 @@ export const getPreferences = (): UserPreferences => {
   }
 };
 
-/**
- * Save preferences to localStorage.
- * Accepts a full or partial preferences object.
- * Dispatches a global event so other parts of the app can react immediately.
- */
-export const savePreferences = (prefs: Partial<UserPreferences> | UserPreferences): void => {
+export const savePreferences = (
+  prefs: Partial<UserPreferences> | UserPreferences
+): void => {
   try {
     const current = getPreferences();
     const next: UserPreferences = { ...current, ...prefs };
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify(next));
-
-    // Notify other windows/tabs via storage (already happens) and notify same-window listeners
-    // Custom event for same-window updates
     try {
-      window.dispatchEvent(new CustomEvent("preferencesChanged", { detail: next }));
-    } catch {
-      // ignore if dispatch fails
-    }
-  } catch {
-    // ignore storage errors
-  }
+      window.dispatchEvent(
+        new CustomEvent<UserPreferences>("preferencesChanged", { detail: next })
+      );
+    } catch {}
+  } catch {}
 };
-
-/** Convenience setters and toggles */
 
 export const setSoundEnabled = (enabled: boolean): void => {
   savePreferences({ soundEnabled: enabled });
@@ -66,7 +53,10 @@ export const setDarkMode = (enabled: boolean): void => {
 };
 
 export const setDailyGoalMinutes = (minutes: number): void => {
-  const safe = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : defaultPreferences.dailyGoalMinutes;
+  const safe =
+    Number.isFinite(minutes) && minutes > 0
+      ? Math.round(minutes)
+      : defaultPreferences.dailyGoalMinutes;
   savePreferences({ dailyGoalMinutes: safe });
 };
 
@@ -89,9 +79,11 @@ export const resetPreferences = (): void => {
   try {
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify(defaultPreferences));
     try {
-      window.dispatchEvent(new CustomEvent("preferencesChanged", { detail: defaultPreferences }));
+      window.dispatchEvent(
+        new CustomEvent<UserPreferences>("preferencesChanged", {
+          detail: defaultPreferences,
+        })
+      );
     } catch {}
-  } catch {
-    // ignore
-  }
+  } catch {}
 };

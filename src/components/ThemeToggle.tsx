@@ -8,7 +8,7 @@ const ThemeToggle = () => {
   return (
     <motion.button
       onClick={toggleTheme}
-      className="fixed top-6 right-6 z-50 p-3 rounded-full bg-card shadow-card border border-border hover:shadow-card-hover transition-shadow"
+      className="fixed top-4 right-4 z-50 p-3 rounded-full bg-card shadow-card border border-border hover:shadow-card-hover transition-shadow"
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
       aria-label="Toggle theme"

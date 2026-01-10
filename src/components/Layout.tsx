@@ -1,3 +1,4 @@
+
 import React, { ReactNode, useEffect, useState } from "react";
 import SettingsPanel from "./SettingsPanel";
 import SettingsToggle from "./SettingsToggle";
@@ -11,26 +12,19 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     const cls = "settings-open";
-    if (settingsOpen) {
-      document.body.classList.add(cls);
-    } else {
-      document.body.classList.remove(cls);
-    }
-    return () => {
-      document.body.classList.remove(cls);
-    };
+    if (settingsOpen) document.body.classList.add(cls);
+    else document.body.classList.remove(cls);
+    return () => document.body.classList.remove(cls);
   }, [settingsOpen]);
 
   return (
     <>
-      {/* Main app content */}
       <main>{children}</main>
 
-      {/* Settings panel (owned by Layout) */}
+      {/* Pass only the props SettingsPanel expects */}
       <SettingsPanel isOpen={settingsOpen} setIsOpen={setSettingsOpen} />
 
-
-      {/* Top-left settings toggle (hidden while panel is open) */}
+      {/* Keep the toggle to open the panel */}
       <SettingsToggle onOpen={() => setSettingsOpen(true)} isOpen={settingsOpen} />
     </>
   );

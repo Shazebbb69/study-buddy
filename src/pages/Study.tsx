@@ -1,218 +1,264 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { motion } from "framer-motion";
-import Timer from "../components/Timer";
-import TimerPresets from "../components/TimerPresets";
-import Button from "../components/Button";
-import GhostBuddy, { GhostState } from "../components/GhostBuddy";
-import ThemeToggle from "../components/ThemeToggle";
-import { saveSession, getSessions } from "../utils/storage";
-import { getPreferences } from "../utils/preferences";
-import { playStartSound, playPauseSound, playResumeSound, playCompleteSound, initAudioContext } from "../utils/sounds";
-import { sendNotification } from "../utils/notifications";
-import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
-import { toast } from "sonner";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  getPreferences,
+  toggleSound,
+  toggleNotifications,
+  toggleDarkMode,
+  setDailyGoalMinutes,
+  UserPreferences,
+} from "../utils/preferences";
+import { getUser, isLoggedIn, onAuthStateChange, logout } from "../utils/auth";
 
-const Study: React.FC = () => {
-  const [selectedMinutes, setSelectedMinutes] = useState(30);
-  const [customMinutes, setCustomMinutes] = useState("30");
-  const [seconds, setSeconds] = useState(30 * 60);
-  const [isRunning, setIsRunning] = useState(false);
-  const [ghostState, setGhostState] = useState<GhostState>("idle");
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const intervalRef = useRef<number | null>(null);
-  const hasStartedRef = useRef(false);
-  const initialSecondsRef = useRef(30 * 60);
+/* =======================
+   PROPS
+======================= */
+interface SettingsPanelProps {
+  isOpen: boolean;
+  setIsOpen: (open: boolean) => void;
+  onSoundChange: React.Dispatch<React.SetStateAction<boolean>>;
+  onNotificationChange: React.Dispatch<React.SetStateAction<boolean>>;
+}
 
-  const todayStudied = getSessions()
-    .filter((s) => new Date(s.date).toDateString() === new Date().toDateString())
-    .reduce((acc, s) => acc + s.duration, 0);
-  const todayMinutes = Math.floor(todayStudied / 60);
+/* =======================
+   ICON
+======================= */
+function IconX() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M18 6L6 18M6 6l12 12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
+/* =======================
+   COMPONENT
+======================= */
+export default function SettingsPanel({
+  isOpen,
+  setIsOpen,
+  onSoundChange,
+  onNotificationChange,
+}: SettingsPanelProps) {
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [prefs, setPrefs] = useState<UserPreferences>(() => getPreferences());
+  const [loggedIn, setLoggedIn] = useState<boolean>(() => isLoggedIn());
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  /* =======================
+     AUTH
+  ======================= */
   useEffect(() => {
-    const prefs = getPreferences();
-    setSoundEnabled(prefs.soundEnabled);
-    setNotificationsEnabled(prefs.notificationsEnabled);
+    let mounted = true;
+    (async () => {
+      const user = await getUser();
+      if (!mounted) return;
+      setLoggedIn(Boolean(user));
+      setUserEmail(user?.email ?? null);
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (isRunning && seconds > 0) {
-      intervalRef.current = window.setInterval(() => {
-        setSeconds((prev) => {
-          if (prev <= 1) {
-            handleTimerComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
+    const unsub = onAuthStateChange((session) => {
+      setLoggedIn(Boolean(session));
+      setUserEmail(session?.user?.email ?? null);
+    });
+    return () => unsub();
+  }, []);
+
+  /* =======================
+     PREFERENCES SYNC
+  ======================= */
+  useEffect(() => {
+    const onPrefs = (e?: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (detail) setPrefs((p) => ({ ...p, ...detail }));
+      else setPrefs(getPreferences());
+    };
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === null || e.key === "studybuddy_preferences") onPrefs();
+    };
+
+    window.addEventListener("preferencesChanged", onPrefs as EventListener);
+    window.addEventListener("storage", onStorage);
+    onPrefs();
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+      window.removeEventListener("preferencesChanged", onPrefs as EventListener);
+      window.removeEventListener("storage", onStorage);
     };
-  }, [isRunning, seconds]);
+  }, []);
 
-  const playSound = useCallback(
-    (soundFn: () => void) => {
-      if (soundEnabled) {
-        initAudioContext();
-        soundFn();
-      }
-    },
-    [soundEnabled]
-  );
+  /* =======================
+     FOCUS TRAP + ESC
+  ======================= */
+  useEffect(() => {
+    if (!isOpen) return;
 
-  const notify = useCallback(
-    (title: string, body: string) => {
-      if (notificationsEnabled) {
-        sendNotification(title, body);
-      }
-    },
-    [notificationsEnabled]
-  );
+    const prevActive = document.activeElement as HTMLElement | null;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
 
-  const handleTimerComplete = () => {
-    setIsRunning(false);
-    setGhostState("completed");
-    playSound(playCompleteSound);
-    notify("StudyBuddy", "Amazing work! Session complete 🎉");
-    const studiedSeconds = initialSecondsRef.current;
-    saveSession(studiedSeconds);
-    toast.success("Session complete!", {
-      description: `You studied for ${Math.floor(studiedSeconds / 60)} minutes.`,
-    });
-    setTimeout(() => {
-      setSeconds(selectedMinutes * 60);
-      setGhostState("idle");
-      hasStartedRef.current = false;
-    }, 3000);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+      prevActive?.focus();
+    };
+  }, [isOpen, setIsOpen]);
+
+  const handleClose = () => setIsOpen(false);
+
+  const handleLogout = async () => {
+    await logout();
+    setLoggedIn(false);
+    setUserEmail(null);
+    setIsOpen(false);
+    navigate("/login");
   };
 
-  const handlePresetSelect = (minutes: number) => {
-    if (isRunning) return;
-    setSelectedMinutes(minutes);
-    setCustomMinutes(minutes.toString());
-    setSeconds(minutes * 60);
-    initialSecondsRef.current = minutes * 60;
-  };
-
-  const handleCustomChange = (value: string) => {
-    setCustomMinutes(value);
-    const num = parseInt(value, 10);
-    if (!isNaN(num) && num >= 1 && num <= 180) {
-      setSelectedMinutes(num);
-      setSeconds(num * 60);
-      initialSecondsRef.current = num * 60;
-    }
-  };
-
-  const handleStartFocus = useCallback(() => {
-    if (seconds === 0) {
-      setSeconds(selectedMinutes * 60);
-      initialSecondsRef.current = selectedMinutes * 60;
-    }
-
-    if (!isRunning) {
-      setIsRunning(true);
-      setGhostState("focusing");
-
-      if (!hasStartedRef.current) {
-        playSound(playStartSound);
-        notify("StudyBuddy", "Focus session started. You've got this! 💪");
-        hasStartedRef.current = true;
-        initialSecondsRef.current = seconds;
-      } else {
-        playSound(playResumeSound);
-      }
-    } else {
-      setIsRunning(false);
-      setGhostState("paused");
-      playSound(playPauseSound);
-      notify("StudyBuddy", "Session paused. Take your time. ☕");
-    }
-  }, [seconds, selectedMinutes, isRunning, playSound, notify]);
-
-  const handleReset = useCallback(() => {
-    setIsRunning(false);
-    setSeconds(selectedMinutes * 60);
-    setGhostState("idle");
-    hasStartedRef.current = false;
-    initialSecondsRef.current = selectedMinutes * 60;
-  }, [selectedMinutes]);
-
-  useKeyboardShortcuts({
-    onSpace: handleStartFocus,
-    onReset: handleReset,
-    enabled: true,
-  });
-
-  const getButtonText = () => {
-    if (isRunning) return "Pause";
-    if (seconds === 0) return "Start Focus";
-    if (hasStartedRef.current) return "Resume";
-    return "Start Focus";
-  };
-
+  /* =======================
+     RENDER
+  ======================= */
   return (
-    <div className="min-h-screen bg-background transition-colors duration-300">
-      <ThemeToggle />
+    <div
+      aria-hidden={!isOpen}
+      role="dialog"
+      aria-modal="true"
+      className={`fixed inset-0 z-50 flex justify-center ${
+        isOpen ? "pointer-events-auto" : "pointer-events-none"
+      }`}
+    >
+      <div
+        onClick={handleClose}
+        className={`absolute inset-0 bg-black/40 ${
+          isOpen ? "opacity-100" : "opacity-0"
+        }`}
+      />
 
-      <motion.div
-        className="min-h-screen flex flex-col items-center justify-center px-6 py-12 pb-28"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
+      <aside
+        ref={panelRef}
+        className="relative w-full sm:max-w-md mx-4 mt-16 bg-card rounded-2xl border border-border shadow"
       >
-        <motion.div
-          className="w-full max-w-md bg-card rounded-3xl shadow-card border border-border p-8 pt-10"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.4 }}
-        >
-          <motion.div
-            className="flex justify-center mb-6"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.15 }}
-          >
-            <GhostBuddy size="md" state={ghostState} showLabel={true} />
-          </motion.div>
+        <div className="flex justify-between p-4 border-b border-border">
+          <h2 className="text-lg font-semibold">Settings</h2>
+          <button ref={closeButtonRef} onClick={handleClose}>
+            <IconX />
+          </button>
+        </div>
 
-          <motion.div className="flex justify-center mb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
-            <Timer seconds={seconds} isRunning={isRunning} />
-          </motion.div>
+        <div className="p-4 space-y-4">
+          {/* NAV */}
+          <nav className="space-y-2">
+            {["/", "/study", "/stats"].map((path) => (
+              <Link
+                key={path}
+                to={path}
+                onClick={handleClose}
+                className={`block p-3 rounded-lg ${
+                  location.pathname === path
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {path === "/" ? "Home" : path.slice(1)}
+              </Link>
+            ))}
+          </nav>
 
-          <motion.div className="mb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.25 }}>
-            <TimerPresets selectedMinutes={selectedMinutes} onSelect={handlePresetSelect} customMinutes={customMinutes} onCustomChange={handleCustomChange} disabled={isRunning} />
-          </motion.div>
+          <hr />
 
-          <motion.div className="flex justify-center gap-3" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <Button onClick={handleStartFocus} variant="primary" className="px-10 py-3">
-              {getButtonText()}
-            </Button>
-            {hasStartedRef.current && (
-              <Button onClick={handleReset} variant="secondary" className="px-6 py-3">
-                Reset
-              </Button>
-            )}
-          </motion.div>
+          {/* AUTH */}
+          {loggedIn ? (
+            <>
+              <p className="text-sm text-muted-foreground">{userEmail}</p>
+              <button
+                onClick={handleLogout}
+                className="w-full py-3 bg-destructive text-white rounded-lg"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <Link to="/login">Login</Link>
+              <Link to="/signup">Signup</Link>
+            </div>
+          )}
 
-          <motion.p className="text-center text-sm text-muted-foreground mt-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.35 }}>
-            Today: <span className="font-semibold text-foreground">{todayMinutes} min</span> studied
-          </motion.p>
-        </motion.div>
+          <hr />
 
-        <motion.p className="text-xs text-muted-foreground/50 mt-8 tracking-widest uppercase" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
-          Study Buddy
-        </motion.p>
-      </motion.div>
+          {/* SOUND */}
+          <div className="flex justify-between items-center">
+            <span>Sound</span>
+            <button
+              onClick={() => {
+                toggleSound();
+                onSoundChange((prev) => !prev);
+              }}
+              className={`w-11 h-6 rounded-full ${
+                prefs.soundEnabled ? "bg-primary" : "bg-muted"
+              }`}
+            />
+          </div>
+
+          {/* NOTIFICATIONS */}
+          <div className="flex justify-between items-center">
+            <span>Notifications</span>
+            <button
+              onClick={() => {
+                toggleNotifications();
+                onNotificationChange((prev) => !prev);
+              }}
+              className={`w-11 h-6 rounded-full ${
+                prefs.notificationsEnabled ? "bg-primary" : "bg-muted"
+              }`}
+            />
+          </div>
+
+          {/* DARK MODE */}
+          <div className="flex justify-between items-center">
+            <span>Dark Mode</span>
+            <button
+              onClick={toggleDarkMode}
+              className={`w-11 h-6 rounded-full ${
+                prefs.darkMode ? "bg-primary" : "bg-muted"
+              }`}
+            />
+          </div>
+
+          {/* DAILY GOAL */}
+          <div className="flex justify-between items-center">
+            <span>Daily Goal</span>
+            <input
+              type="number"
+              min={1}
+              value={prefs.dailyGoalMinutes}
+              onChange={(e) => setDailyGoalMinutes(Number(e.target.value))}
+              className="w-20 border rounded px-2"
+            />
+          </div>
+        </div>
+      </aside>
     </div>
   );
-};
-
-export default Study;
+}
